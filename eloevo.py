@@ -45,10 +45,17 @@ def str2date(s):
 @app.command()
 def eloevograph(user_path: Path, img_path: Path, show: bool = False):
     games = load_games(user_path)
+    # bullet = filter(lambda g: g['TimeControl'] in ['60+1', '60'], games)
     rapid = filter(lambda g: g['TimeControl'] == '600', games)
     user = user_path.as_posix()
     eloevo = sorted(map(lambda g: (str2date(g['EndDate']), int(g['WhiteElo'] if g['White'] == user else g['BlackElo'])), rapid))
-    plt.plot([d for d, _ in eloevo], [e for _, e in eloevo])
+    fechas = [d for d, _ in eloevo]
+    elo = [e for _, e in eloevo]
+    plt.plot(fechas, elo)
+    plt.xlabel('Fecha')
+    plt.ylabel('ELO')
+    plt.title(f'{user_path} Rapid')
+    plt.axis([min(fechas), max(fechas), 0, max(elo)*1.1])
     plt.grid()
     if show:
         plt.show()

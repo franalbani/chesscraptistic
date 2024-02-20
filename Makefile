@@ -33,7 +33,7 @@ $(USER_MKF): $(ARCHIVES)
 	@echo -e "\t@wget -q -O \$$@ $(BASEURL)/$(USER)/\$$(shell echo \$$@ | cut -d. -f 1)/pgn" >> $@
 
 
-$(USER_PKL): eloevo.py | venv
+$(USER_PKL): | venv
 	$(VENV)/python eloevo.py games2pickle $(USER)
 
 eloevo: $(USER_EVO)
