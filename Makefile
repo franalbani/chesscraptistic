@@ -1,26 +1,52 @@
-USERNAME = someuser
+# To use this file you always need to provide the USER.
+# E.g.:
+# 	make USER=magnus
 
-BASEURL = https://api.chess.com/pub/player/$(USERNAME)/games
+BASEURL = https://api.chess.com/pub/player
+ARCHIVES := $(USER)/archives.json
+USER_MKF := $(USER)/Makefile
+USER_PKL := $(USER)/games.pickle
+USER_EVO := $(USER)/eloevo.png
 
-LAST_YEAR_MONTH = $(shell date -d "1 month ago" +%Y-%m)
+# The goal of this rule is to save you from having to
+# type:
+# 	make USER=magnus magnus/archive.json
+# which is suspicious and prone to error.
+default: $(ARCHIVES) $(USER_MKF)
+	@echo "$(ARCHIVES) downloadad and $(USER_MKF) generated"
 
-# FIXME: do not generate unneded months
-# FIXME: softcode last month
-all: $(shell echo {2020..2023}_{01..12}.pgn)
+$(ARCHIVES):
+	@mkdir -p $(dir $@)
+	@wget -q -O $@ $(BASEURL)/$(USER)/games/archives || rm -f $@
 
-eloevo.png: venv
-	$(VENV)/python -c "from eloevo import eloevograph, load_games; eloevograph(load_games(), '$@')"
+# This rule creates a "sub" Makefile for each user
+# TODO: should we omit the last month?
+$(USER_MKF): $(ARCHIVES)
+	@echo -n "MONTHS := " > $@
+	@jq -r '.archives[]' $< | cut -d '/' -f 7- | xargs -Ix echo x.pgn | xargs >> $@
+	@echo >> $@
+	@echo "all: \$$(MONTHS)" >> $@
+	@echo >> $@
+	@echo "\$$(MONTHS):" >> $@
+	@echo -e "\t@mkdir -p \$$(dir \$$@)" >> $@
+	@echo -e "\t@echo \$$@" >> $@
+	@echo -e "\t@wget -q -O \$$@ $(BASEURL)/$(USER)/\$$(shell echo \$$@ | cut -d. -f 1)/pgn" >> $@
 
-%.pgn:
-	@wget -O $@ $(BASEURL)/$(shell echo $(@) | cut -d'_' -f 1)/$(shell echo $(@) | cut -d'_' -f 2 | cut -d. -f 1)/pgn
+$(USER_PKL): eloevo.py | venv
+	$(VENV)/python eloevo.py games2pickle $(USER)
 
+$(USER_EVO): eloevo.py | venv
+	$(VENV)/python eloevo.py eloevograph $(USER) $@
 
-$(VENVDIR)/CACHEDIR.TAG: venv
+# This is handy for telling backup programs to omit the venv dir:
+# https://bford.info/cachedir/
+$(VENVDIR)/CACHEDIR.TAG: | venv
 	@echo Signature: 8a477f597d28d172789f06886806bc55 > $@
 
 clean:
 	rm -f *.pgn
 
-.PHONY: all clean test
+.PHONY: default clean test
 
+# This includes Python's venv tools:
 include Makefile.venv

@@ -1,2 +1,3 @@
 chess
 matplotlib
+typer

@@ -6,6 +6,10 @@ from typing import List
 from datetime import datetime
 import pickle
 import matplotlib.pyplot as plt
+from typer import Typer
+
+
+app = Typer()
 
 
 def log(s):
@@ -38,8 +42,11 @@ def str2date(s):
     return datetime.fromisoformat(s.replace('.', '-'))
 
 
-def eloevograph(games, img_path: Path, user, show: bool = False):
+@app.command()
+def eloevograph(user_path: Path, img_path: Path, show: bool = False):
+    games = load_games(user_path)
     rapid = filter(lambda g: g['TimeControl'] == '600', games)
+    user = user_path.as_posix()
     eloevo = sorted(map(lambda g: (str2date(g['EndDate']), int(g['WhiteElo'] if g['White'] == user else g['BlackElo'])), rapid))
     plt.plot([d for d, _ in eloevo], [e for _, e in eloevo])
     plt.grid()
@@ -48,19 +55,26 @@ def eloevograph(games, img_path: Path, user, show: bool = False):
     plt.savefig(img_path)
 
 
-def load_games(pickle_path: Path = 'games.pickle'):
+def load_games(user_path: Path):
     try:
-        with open(pickle_path, 'rb') as f:
-            games = pickle.load(f)
-        log(f'Loadad {len(games)} games from {pickle_path}.')
+        with open(user_path / 'games.pickle', 'rb') as p:
+            games = pickle.load(p)
+        log(f'Loadad {len(games)} games from {user_path}.')
+        return games
     except (FileNotFoundError, EOFError):
-        log(f'No pickle found.')
-        pgn_paths = list(glob('*.pgn'))
-        games = pgns2games(pgn_paths)
-        with open(pickle_path, 'wb') as f:
-            pickle.dump(games, f)
-        log(f'Saved {len(games)} games to {pickle_path}.')
-    return games
+        log(f'No pickle found for {pickle_path}.')
+        games2pickle(user_path)
+        return load_games(user_path)
 
-if __name__ == '__main__':
-    eloevograph(load_games(), '/tmp/eloevo.png', show=True)
+
+@app.command()
+def games2pickle(user_path: Path):
+    pgn_paths = list(glob((user_path / 'games/*/*.pgn').as_posix()))
+    games = pgns2games(pgn_paths)
+    with open(user_path / 'games.pickle', 'wb') as p:
+        pickle.dump(games, p)
+    log(f'Saved {len(games)} games to {user_path}.')
+
+
+#    eloevograph(load_games(), '/tmp/eloevo.png', show=True)
+app() if __name__ == '__main__' else None
