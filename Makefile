@@ -10,7 +10,7 @@ USER_EVO := $(USER)/eloevo.png
 
 # The goal of this rule is to save you from having to
 # type:
-# 	make USER=magnus magnus/archive.json
+# 	make USER=magnus magnus/archive.json magnus/Makefile
 # which is suspicious and prone to error.
 default: $(ARCHIVES) $(USER_MKF)
 	@echo "$(ARCHIVES) downloadad and $(USER_MKF) generated"
@@ -32,10 +32,13 @@ $(USER_MKF): $(ARCHIVES)
 	@echo -e "\t@echo \$$@" >> $@
 	@echo -e "\t@wget -q -O \$$@ $(BASEURL)/$(USER)/\$$(shell echo \$$@ | cut -d. -f 1)/pgn" >> $@
 
+
 $(USER_PKL): eloevo.py | venv
 	$(VENV)/python eloevo.py games2pickle $(USER)
 
-$(USER_EVO): eloevo.py | venv
+eloevo: $(USER_EVO)
+
+$(USER_EVO): eloevo.py $(USER_PKL) | venv
 	$(VENV)/python eloevo.py eloevograph $(USER) $@
 
 # This is handy for telling backup programs to omit the venv dir:
@@ -43,10 +46,9 @@ $(USER_EVO): eloevo.py | venv
 $(VENVDIR)/CACHEDIR.TAG: | venv
 	@echo Signature: 8a477f597d28d172789f06886806bc55 > $@
 
-clean:
-	rm -f *.pgn
+cachedirtag: $(VENVDIR)/CACHEDIR.TAG
 
-.PHONY: default clean test
+.PHONY: default eloevo cachedirtag
 
 # This includes Python's venv tools:
 include Makefile.venv
